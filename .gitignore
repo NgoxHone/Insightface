@@ -84,3 +84,5 @@ logs/
 .claude/
 
 models/models/
+
+data/*

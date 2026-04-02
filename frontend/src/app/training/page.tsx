@@ -35,9 +35,10 @@ export default function TrainingPage() {
     try {
       const response = await getPeople();
       if (response.success && response.data) {
-        setPeople(response.data.people);
+        const names = (response.data.people || []).map((p) => p.name);
+        setPeople(names);
         setTrainingStatuses(
-          response.data.people.map((name: string) => ({
+          names.map((name: string) => ({
             name,
             status: 'idle' as const
           }))

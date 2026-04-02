@@ -15,14 +15,22 @@ def check_imports():
     """Check all required modules"""
     print("Checking imports...")
     modules = [
-        'flask', 'cv2', 'numpy', 'torch', 'insightface',
-        'albumentations', 'pandas', 'sklearn', 'matplotlib', 'seaborn'
+        "flask",
+        "cv2",
+        "numpy",
+        "torch",
+        "insightface",
+        "albumentations",
+        "pandas",
+        "sklearn",
+        "matplotlib",
+        "seaborn",
     ]
 
     missing = []
     for mod in modules:
         try:
-            __import__(mod.replace('-', '_'))
+            __import__(mod.replace("-", "_"))
             print(f"  ✓ {mod}")
         except ImportError as e:
             print(f"  ✗ {mod} - {e}")
@@ -37,11 +45,12 @@ def check_insightface_model():
     try:
         from insightface.app import FaceAnalysis
         from config import config
+
         model_dir = config.MODELS_DIR
         print(f"  Model directory: {model_dir}")
         print("  Attempting to load model...")
         model = FaceAnalysis(name=config.MODEL_NAME, root=str(model_dir))
-        model.prepare(ctx_id=0, det_size=(640, 640))
+        model.prepare(ctx_id=0, det_size=(1200, 1200))
         print("  ✓ Model loaded successfully")
         return True
     except Exception as e:
@@ -54,12 +63,13 @@ def check_directories():
     """Check required directories exist"""
     print("\nChecking directories...")
     from config import config
+
     dirs = [
         config.DATA_DIR,
         config.UPLOAD_DIR,
         config.TRAINED_MODELS_DIR,
         config.MODELS_DIR,
-        config.STATIC_DIR
+        config.STATIC_DIR,
     ]
     for d in dirs:
         d.mkdir(parents=True, exist_ok=True)
@@ -71,6 +81,7 @@ def check_flask_app():
     print("\nChecking Flask app...")
     try:
         from app import create_app
+
         app = create_app()
         print(f"  ✓ Flask app created")
         print(f"  ✓ API routes registered")
@@ -118,5 +129,5 @@ def main():
         return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

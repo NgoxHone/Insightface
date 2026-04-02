@@ -1,9 +1,17 @@
-'use client';
+"use client";
 
-import { useState, useRef, useCallback } from 'react';
-import { registerPerson } from '@/lib/api';
-import { faUserPlus, faUpload, faSpinner, faExclamationCircle, faCheckCircle, faTrash, faImages } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { useState, useRef, useCallback } from "react";
+import { registerPerson } from "@/lib/api";
+import {
+  faUserPlus,
+  faUpload,
+  faSpinner,
+  faExclamationCircle,
+  faCheckCircle,
+  faTrash,
+  faImages,
+} from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 interface ImageItem {
   file: File;
@@ -11,57 +19,65 @@ interface ImageItem {
 }
 
 export default function RegisterPage() {
-  const [name, setName] = useState('');
+  const [name, setName] = useState("");
   const [images, setImages] = useState<ImageItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = useCallback((files: FileList) => {
     const newImages = Array.from(files)
-      .filter(f => f.type.startsWith('image/'))
-      .map(file => ({
+      .filter((f) => f.type.startsWith("image/"))
+      .map((file) => ({
         file,
-        url: URL.createObjectURL(file)
+        url: URL.createObjectURL(file),
       }));
-    
-    setImages(prev => [...prev, ...newImages]);
-    setError('');
+
+    setImages((prev) => [...prev, ...newImages]);
+    setError("");
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    const files = e.dataTransfer.files;
-    if (files.length > 0) handleFileSelect(files);
-  }, [handleFileSelect]);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      const files = e.dataTransfer.files;
+      if (files.length > 0) handleFileSelect(files);
+    },
+    [handleFileSelect],
+  );
 
   const removeImage = (index: number) => {
-    setImages(prev => prev.filter((_, i) => i !== index));
+    setImages((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleRegister = async () => {
     if (!name.trim() || images.length === 0) {
-      setError('Vui lòng nhập tên và chọn ít nhất 1 ảnh');
+      setError("Vui lòng nhập tên và chọn ít nhất 1 ảnh");
       return;
     }
 
     setLoading(true);
-    setError('');
-    setSuccess('');
+    setError("");
+    setSuccess("");
 
     try {
-      const response = await registerPerson(name.trim(), images.map(img => img.file));
-      
+      const response = await registerPerson(
+        name.trim(),
+        images.map((img) => img.file),
+      );
+
       if (response.success) {
-        setSuccess(`Đã đăng ký ${name} với ${response.data?.embeddings_extracted || 0} ảnh khuôn mặt!`);
-        setName('');
+        setSuccess(
+          `Đã đăng ký ${name} với ${response.data?.embeddings_extracted || 0} ảnh khuôn mặt!`,
+        );
+        setName("");
         setImages([]);
       } else {
-        setError(response.error || 'Đăng ký thất bại');
+        setError(response.error || "Đăng ký thất bại");
       }
     } catch (err) {
-      setError('Lỗi kết nối đến server');
+      setError("Lỗi kết nối đến server");
     } finally {
       setLoading(false);
     }
@@ -70,10 +86,16 @@ export default function RegisterPage() {
   return (
     <div className="animate-fade-in">
       <h1 className="text-3xl font-bold mb-2 text-[#bb86fc]">
-        <FontAwesomeIcon icon={faUserPlus} className="mr-2" />
+        <FontAwesomeIcon
+          style={{ maxWidth: 25, maxHeight: 25 }}
+          icon={faUserPlus}
+          className="mr-2"
+        />
         Đăng Ký Người Mới
       </h1>
-      <p className="text-gray-400 mb-6">Thêm người mới vào hệ thống với ảnh khuôn mặt</p>
+      <p className="text-gray-400 mb-6">
+        Thêm người mới vào hệ thống với ảnh khuôn mặt
+      </p>
 
       {/* Name Input */}
       <div className="mb-6">
@@ -103,11 +125,16 @@ export default function RegisterPage() {
           className="hidden"
           onChange={(e) => e.target.files && handleFileSelect(e.target.files)}
         />
-        <FontAwesomeIcon icon={faUpload} className="text-4xl text-gray-500 mb-3" />
+        <FontAwesomeIcon
+          icon={faUpload}
+          className="text-4xl text-gray-500 mb-3"
+        />
         <p className="text-gray-400">
           Kéo thả nhiều ảnh vào đây hoặc click để chọn
           <br />
-          <small className="text-sm">Nên có ít nhất 5 ảnh với các góc khác nhau</small>
+          <small className="text-sm">
+            Nên có ít nhất 5 ảnh với các góc khác nhau
+          </small>
         </p>
       </div>
 
@@ -140,7 +167,7 @@ export default function RegisterPage() {
           </div>
         </div>
       )}
-      
+
       {/* Controls */}
       <div className="bg-[#1a1a1a] rounded-lg p-4 mb-6 flex gap-4 items-center flex-wrap">
         <button
@@ -160,13 +187,13 @@ export default function RegisterPage() {
             </span>
           )}
         </button>
-        
+
         <button
           onClick={() => {
-            setName('');
+            setName("");
             setImages([]);
-            setError('');
-            setSuccess('');
+            setError("");
+            setSuccess("");
           }}
           className="bg-[#cf6679] text-[#0a0a0a] px-6 py-2 rounded-lg font-medium hover:opacity-90 transition-all"
         >
@@ -191,6 +218,5 @@ export default function RegisterPage() {
         </div>
       )}
     </div>
-
   );
 }
