@@ -38,16 +38,51 @@ env/
 *.swo
 *~
 
-# Project specific
+# Node/Frontend
+node_modules/
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# Project specific - Data (will be mounted)
 data/database.pkl
 data/database.json
-logs/
-trained_models/*.onnx
+data/raw/**
+data/processed/**
+data/splits/**
+
+# Models (will be mounted)
+models/buffalo_l/*.onnx
+
+# Trained models (will be mounted)
 trained_models/checkpoints/*
 trained_models/finetuned/*
 trained_models/logs/*
 !trained_models/checkpoints/.gitkeep
 !trained_models/finetuned/.gitkeep
+
+# Logs (will be mounted)
+logs/*
+
+# Uploads (will be mounted)
+uploads/**
+
+# Documentation
+*.md
+docs/
+
+# Tests
+tests/
+test_*.py
+
+# Docker
+docker-compose*.yml
+Dockerfile
+.dockerignore
+
+# OS
+.DS_Store
+Thumbs.db
 !trained_models/logs/.gitkeep
 uploads/temp/*
 uploads/faces/*

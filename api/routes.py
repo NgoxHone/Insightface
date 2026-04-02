@@ -85,31 +85,207 @@ def get_info():
 
 @api_bp.route('/people', methods=['GET'])
 def list_people():
-    """List all registered people"""
-    if not database:
-        return api_error("Database not initialized", 500)
+    """List all people from data/raw directory"""
+    try:
+        from config import config
+        raw_dir = config.DATA_DIR / "raw"
+        
+        if not raw_dir.exists():
+            return api_success(data={
+                'people': [],
+                'count': 0,
+                'total_embeddings': 0,
+                'total_images': 0
+            })
+        
+        people_data = []
+        total_images = 0
+        total_embeddings = 0
+        
+        # Scan data/raw directory
+        for person_dir in sorted(raw_dir.iterdir()):
+            if not person_dir.is_dir() or person_dir.name.startswith('.'):
+                continue
+            
+            # Count images
+            images = list(person_dir.glob("*.jpg")) + list(person_dir.glob("*.png")) + list(person_dir.glob("*.jpeg"))
+            image_count = len(images)
+            total_images += image_count
+            
+            # Check if person is in database
+            person_in_db = database.get_person(person_dir.name) if database else None
+            embeddings_count = len(person_in_db.get('embeddings', [])) if person_in_db else 0
+            total_embeddings += embeddings_count
+            
+            is_trained = person_in_db is not None and embeddings_count > 0
+            trained_at = person_in_db.get('metadata', {}).get('trained_at') if person_in_db else None
+            
+            people_data.append({
+                'name': person_dir.name,
+                'image_count': image_count,
+                'embeddings_count': embeddings_count,
+                'is_trained': is_trained,
+                'trained_at': trained_at,
+                'has_database': person_in_db is not None
+            })
+        
+        return api_success(data={
+            'people': people_data,
+            'count': len(people_data),
+            'total_embeddings': total_embeddings,
+            'total_images': total_images
+        })
+    except Exception as e:
+        logger.error(f"Failed to list people: {e}")
+        return api_error(f"Lỗi: {str(e)}", 500)
 
-    people = database.get_all_people()
-    stats = database.get_stats()
 
-    return api_success(data={
-        'people': people,
-        'count': len(people),
-        'total_embeddings': stats['total_embeddings']
-    })
+@api_bp.route('/person/<name>', methods=['GET'])
+def get_person_detail(name):
+    """Get detailed info about a person including images"""
+    try:
+        from config import config
+        import base64
+        
+        raw_dir = config.DATA_DIR / "raw" / name
+        if not raw_dir.exists():
+            return api_error(f"Person '{name}' not found in data/raw", 404)
+        
+        # Get images
+        images = []
+        for img_path in sorted(raw_dir.glob("*.*")):
+            if img_path.suffix.lower() in ['.jpg', '.jpeg', '.png', '.webp']:
+                try:
+                    img = cv2.imread(str(img_path))
+                    if img is not None:
+                        _, buffer = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 75])
+                        img_base64 = base64.b64encode(buffer).decode('utf-8')
+                        images.append({
+                            'filename': img_path.name,
+                            'path': str(img_path.relative_to(config.DATA_DIR / "raw")),
+                            'data': f'data:image/jpeg;base64,{img_base64}',
+                            'size': img_path.stat().st_size
+                        })
+                except Exception as e:
+                    logger.warning(f"Failed to read {img_path}: {e}")
+        
+        # Get database info
+        person_in_db = database.get_person(name) if database else None
+        embeddings_count = len(person_in_db.get('embeddings', [])) if person_in_db else 0
+        is_trained = person_in_db is not None and embeddings_count > 0
+        trained_at = person_in_db.get('metadata', {}).get('trained_at') if person_in_db else None
+        
+        return api_success(data={
+            'name': name,
+            'images': images,
+            'image_count': len(images),
+            'embeddings_count': embeddings_count,
+            'is_trained': is_trained,
+            'trained_at': trained_at,
+            'has_database': person_in_db is not None
+        })
+    except Exception as e:
+        logger.error(f"Failed to get person {name}: {e}")
+        return api_error(f"Lỗi: {str(e)}", 500)
+
+
+@api_bp.route('/person/<name>/images', methods=['POST'])
+def upload_person_images(name):
+    """
+    Upload new images for a person to data/raw/<name>/
+    """
+    try:
+        from config import config
+        
+        # Get uploaded files
+        files = request.files.getlist('images')
+        if not files or len(files) == 0:
+            return api_error("No images provided", 400)
+        
+        # Create directory if not exists
+        raw_dir = config.DATA_DIR / "raw" / name
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Get existing count
+        existing = list(raw_dir.glob("*.*"))
+        start_idx = len(existing) + 1
+        
+        saved_count = 0
+        for i, file in enumerate(files):
+            if file and file.filename:
+                # Generate filename
+                ext = Path(file.filename).suffix or '.jpg'
+                filename = f"{start_idx + i:04d}{ext}"
+                filepath = raw_dir / filename
+                
+                # Save file
+                file.save(str(filepath))
+                saved_count += 1
+        
+        logger.info(f"Saved {saved_count} images for {name} to {raw_dir}")
+        
+        return api_success(
+            data={
+                'name': name,
+                'saved_count': saved_count,
+                'total_images': len(list(raw_dir.glob("*.*")))
+            },
+            message=f"Đã thêm {saved_count} ảnh cho {name}"
+        )
+    except Exception as e:
+        logger.error(f"Failed to upload images for {name}: {e}")
+        return api_error(f"Lỗi: {str(e)}", 500)
+
+
+@api_bp.route('/person/<name>/image/<filename>', methods=['DELETE'])
+def delete_person_image(name, filename):
+    """
+    Delete a specific image from data/raw/<name>/
+    """
+    try:
+        from config import config
+        
+        raw_dir = config.DATA_DIR / "raw" / name
+        filepath = raw_dir / filename
+        
+        if not filepath.exists():
+            return api_error(f"Image '{filename}' not found", 404)
+        
+        filepath.unlink()
+        logger.info(f"Deleted {filepath} for {name}")
+        
+        return api_success(message=f"Đã xóa ảnh {filename}")
+    except Exception as e:
+        logger.error(f"Failed to delete image: {e}")
+        return api_error(f"Lỗi: {str(e)}", 500)
 
 
 @api_bp.route('/person/<name>', methods=['DELETE'])
 def delete_person(name):
-    """Delete a person from database"""
+    """Delete a person from database and data/raw"""
     if not database:
         return api_error("Database not initialized", 500)
 
-    success = database.remove_person(name)
-    if success:
-        return api_success(message=f"Removed {name}")
-    else:
-        return api_error(f"Person '{name}' not found", 404)
+    try:
+        from config import config
+        
+        # Remove from database
+        db_success = database.remove_person(name)
+        
+        # Remove raw images
+        raw_dir = config.DATA_DIR / "raw" / name
+        if raw_dir.exists():
+            import shutil
+            shutil.rmtree(raw_dir)
+            logger.info(f"Removed raw images for {name}")
+        
+        if db_success or raw_dir.exists() is False:
+            return api_success(message=f"Đã xóa {name}")
+        else:
+            return api_error(f"Person '{name}' not found", 404)
+    except Exception as e:
+        logger.error(f"Failed to delete person {name}: {e}")
+        return api_error(f"Lỗi: {str(e)}", 500)
 
 
 # ============== Registration ==============
@@ -248,9 +424,7 @@ def detect_faces():
 @api_bp.route('/train/<name>', methods=['POST'])
 def train_person(name):
     """
-    Train/retrain model for a specific person
-    
-    This processes their embeddings and updates the recognition model
+    Train/retrain model for a specific person from data/raw/<name>/ images
     """
     if not database:
         return api_error("Database not initialized", 500)
@@ -258,49 +432,76 @@ def train_person(name):
     if not recognizer:
         return api_error("Recognizer not initialized", 500)
     
-    # Check if person exists
-    person_data = database.get_person(name)
-    if not person_data:
-        return api_error(f"Person '{name}' not found", 404)
-    
-    embeddings = person_data.get('embeddings', [])
-    if len(embeddings) == 0:
-        return api_error(f"No embeddings found for '{name}'", 400)
-    
     try:
-        # Update person's average embedding
-        embeddings_array = np.array(embeddings)
-        avg_embedding = np.mean(embeddings_array, axis=0)
-        norm = np.linalg.norm(avg_embedding)
-        if norm > 0:
-            avg_embedding = avg_embedding / norm
+        from config import config
         
-        # Update person record with trained status
-        person_data['metadata']['trained'] = True
-        person_data['metadata']['trained_at'] = datetime.now().isoformat()
-        person_data['metadata']['embedding_count'] = len(embeddings)
+        # Get images from data/raw/<name>/
+        raw_dir = config.DATA_DIR / "raw" / name
+        if not raw_dir.exists():
+            return api_error(f"No images found for '{name}' in data/raw", 404)
         
-        database.save()
+        # Read all images
+        image_files = list(raw_dir.glob("*.jpg")) + list(raw_dir.glob("*.png")) + list(raw_dir.glob("*.jpeg"))
+        if len(image_files) == 0:
+            return api_error(f"No valid images found for '{name}'", 400)
         
-        logger.info(f"Trained model for {name} with {len(embeddings)} embeddings")
+        # Process images and extract embeddings
+        images = []
+        for img_path in image_files:
+            img = cv2.imread(str(img_path))
+            if img is not None:
+                images.append(img)
+        
+        if len(images) == 0:
+            return api_error(f"Failed to load any images for '{name}'", 400)
+        
+        # Extract embeddings from images using face_analyzer directly
+        embeddings = []
+        for img in images:
+            face_results = face_analyzer.detect_and_align(img)
+            for result in face_results:
+                embedding = result.get('embedding')
+                if embedding is not None:
+                    embeddings.append(embedding)
+        
+        if len(embeddings) == 0:
+            return api_error(f"No faces detected in images for '{name}'", 400)
+        
+        # Save to database
+        database.add_person(name, embeddings)
+        
+        # Update training status
+        person_data = database.get_person(name)
+        if person_data:
+            person_data['metadata']['trained'] = True
+            person_data['metadata']['trained_at'] = datetime.now().isoformat()
+            person_data['metadata']['image_count'] = len(image_files)
+            database.save()
+        
+        # Reload recognizer database to get latest changes
+        recognizer.reload_database()
+        
+        logger.info(f"Trained {name} with {len(embeddings)} embeddings from {len(image_files)} images")
         
         return api_success(
             data={
                 'name': name,
+                'images_processed': len(image_files),
+                'faces_detected': len(embeddings),
                 'embeddings_count': len(embeddings),
-                'trained_at': person_data['metadata']['trained_at']
+                'trained_at': person_data['metadata']['trained_at'] if person_data else None
             },
-            message=f"Đã train thành công cho {name}"
+            message=f"Đã train thành công cho {name} với {len(embeddings)} embeddings từ {len(image_files)} ảnh"
         )
     except Exception as e:
-        logger.error(f"Failed to train {name}: {e}")
+        logger.error(f"Failed to train {name}: {e}", exc_info=True)
         return api_error(f"Train thất bại: {str(e)}", 500)
 
 
 @api_bp.route('/train-all', methods=['POST'])
 def train_all_people():
     """
-    Train model for all people in database
+    Train model for all people in data/raw directory
     """
     if not database:
         return api_error("Database not initialized", 500)
@@ -308,46 +509,99 @@ def train_all_people():
     if not recognizer:
         return api_error("Recognizer not initialized", 500)
     
-    people = database.get_all_people()
-    if len(people) == 0:
-        return api_error("No people in database", 400)
-    
-    results = []
-    errors = []
-    
-    for name in people:
-        try:
-            person_data = database.get_person(name)
-            embeddings = person_data.get('embeddings', [])
-            
-            if len(embeddings) == 0:
-                errors.append({'name': name, 'error': 'No embeddings'})
+    try:
+        from config import config
+        raw_dir = config.DATA_DIR / "raw"
+        
+        if not raw_dir.exists():
+            return api_error("data/raw directory not found", 404)
+        
+        results = []
+        errors = []
+        total_images = 0
+        total_faces = 0
+        
+        # Process each person directory
+        for person_dir in sorted(raw_dir.iterdir()):
+            if not person_dir.is_dir() or person_dir.name.startswith('.'):
                 continue
             
-            # Update training status
-            person_data['metadata']['trained'] = True
-            person_data['metadata']['trained_at'] = datetime.now().isoformat()
-            
-            results.append({
-                'name': name,
-                'embeddings_count': len(embeddings),
-                'status': 'success'
-            })
-        except Exception as e:
-            errors.append({'name': name, 'error': str(e)})
-    
-    database.save()
-    
-    return api_success(
-        data={
-            'total': len(people),
-            'success': len(results),
-            'failed': len(errors),
-            'results': results,
-            'errors': errors
-        },
-        message=f"Đã train {len(results)}/{len(people)} người"
-    )
+            name = person_dir.name
+            try:
+                # Get images
+                image_files = list(person_dir.glob("*.jpg")) + list(person_dir.glob("*.png")) + list(person_dir.glob("*.jpeg"))
+                if len(image_files) == 0:
+                    errors.append({'name': name, 'error': 'No images'})
+                    continue
+                
+                total_images += len(image_files)
+                
+                # Read and process images
+                images = []
+                for img_path in image_files:
+                    img = cv2.imread(str(img_path))
+                    if img is not None:
+                        images.append(img)
+                
+                if len(images) == 0:
+                    errors.append({'name': name, 'error': 'Failed to load images'})
+                    continue
+                
+                # Extract embeddings
+                embeddings = []
+                for img in images:
+                    face_results = face_analyzer.detect_and_align(img)
+                    for result in face_results:
+                        embedding = result.get('embedding')
+                        if embedding is not None:
+                            embeddings.append(embedding)
+                
+                if len(embeddings) == 0:
+                    errors.append({'name': name, 'error': 'No faces detected'})
+                    continue
+                
+                total_faces += len(embeddings)
+                
+                # Save to database
+                database.add_person(name, embeddings)
+                
+                # Update training status
+                person_data = database.get_person(name)
+                if person_data:
+                    person_data['metadata']['trained'] = True
+                    person_data['metadata']['trained_at'] = datetime.now().isoformat()
+                    person_data['metadata']['image_count'] = len(image_files)
+                
+                results.append({
+                    'name': name,
+                    'images_processed': len(image_files),
+                    'faces_detected': len(embeddings),
+                    'status': 'success'
+                })
+            except Exception as e:
+                errors.append({'name': name, 'error': str(e)})
+                logger.error(f"Failed to train {name}: {e}")
+        
+        database.save()
+        
+        # Reload recognizer database to get latest changes
+        recognizer.reload_database()
+        
+        return api_success(
+            data={
+                'total': len(results) + len(errors),
+                'success': len(results),
+                'failed': len(errors),
+                'total_images': total_images,
+                'total_faces': total_faces,
+                'results': results,
+                'errors': errors
+            },
+            message=f"Đã train {len(results)}/{len(results) + len(errors)} người với {total_faces} embeddings từ {total_images} ảnh"
+        )
+    except Exception as e:
+        logger.error(f"Failed to train all: {e}", exc_info=True)
+        return api_error(f"Lỗi: {str(e)}", 500)
 
 
 @api_bp.route('/person/<name>/images', methods=['GET'])

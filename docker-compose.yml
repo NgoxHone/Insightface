@@ -1,28 +1,73 @@
 version: '3.8'
 
 services:
+  # Backend API Service
   face-recognition-api:
-    build: .
+    build: 
+      context: .
+      dockerfile: Dockerfile
     container_name: face-recognition-api
     ports:
-      - "${API_PORT:-5000}:5000"
+      - "${API_PORT:-5001}:5001"
     environment:
       - API_HOST=0.0.0.0
-      - API_PORT=5000
+      - API_PORT=5001
       - RECOGNITION_THRESHOLD=${RECOGNITION_THRESHOLD:-0.6}
       - DETECTION_THRESHOLD=${DETECTION_THRESHOLD:-0.5}
       - ENABLE_QUALITY_CHECK=${ENABLE_QUALITY_CHECK:-true}
     volumes:
+      # Data directories - IMPORTANT
       - ./data:/app/data
-      - ./uploads:/app/uploads
+      - ./data/raw:/app/data/raw
+      - ./data/processed:/app/data/processed
+      - ./data/splits:/app/data/splits
+      
+      # Models - InsightFace buffalo_l
+      - ./models:/app/models
+      - ./models/buffalo_l:/app/models/buffalo_l
+      
+      # Trained models & checkpoints
       - ./trained_models:/app/trained_models
+      - ./trained_models/checkpoints:/app/trained_models/checkpoints
+      - ./trained_models/finetuned:/app/trained_models/finetuned
+      
+      # Uploads
+      - ./uploads:/app/uploads
+      - ./uploads/faces:/app/uploads/faces
+      - ./uploads/temp:/app/uploads/temp
+      
+      # Logs
       - ./logs:/app/logs
+      
+      # Static files (optional)
+      - ./static:/app/static
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/api/health')"]
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5001/api/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+    networks:
+      - face-recognition-network
 
-  # Optional: pgAdmin or other tools
+  # Frontend Next.js Service
+  face-recognition-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: face-recognition-frontend
+    ports:
+      - "${FRONTEND_PORT:-8078}:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://face-recognition-api:5001
+      - NODE_ENV=production
+    depends_on:
+      - face-recognition-api
+    restart: unless-stopped
+    networks:
+      - face-recognition-network
+
+networks:
+  face-recognition-network:
+    driver: bridge

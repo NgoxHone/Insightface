@@ -56,6 +56,11 @@ class FaceRecognizer:
         self.threshold = threshold
         logger.info(f"Threshold updated to {threshold}")
 
+    def reload_database(self):
+        """Reload database from disk to get latest changes"""
+        self.database.load(force=True)
+        logger.info(f"Database reloaded with {len(self.database.get_all_people())} people")
+
     def detect(self, image: np.ndarray) -> List[Dict[str, Any]]:
         """
         Detect faces in image (without recognition)
