@@ -1,0 +1,86 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# IDEs
+.vscode/
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Project specific
+data/database.pkl
+data/database.json
+logs/
+*.log
+trained_models/*.onnx
+trained_models/checkpoints/*
+!trained_models/checkpoints/.gitkeep
+trained_models/finetuned/*
+!trained_models/finetuned/.gitkeep
+trained_models/logs/*
+!trained_models/logs/.gitkeep
+
+# Uploads
+uploads/temp/*
+uploads/faces/*
+!uploads/temp/.gitkeep
+!uploads/faces/.gitkeep
+
+# Models (downloaded by insightface)
+models/buffalo_l/*
+!models/buffalo_l/.gitkeep
+
+# Jupyter
+.ipynb_checkpoints
+*.ipynb
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# PyTorch
+*.pth
+*.pt
+checkpoint-*/
+lightning_logs/
+
+data/raw
+logs/
+.claude/
+
+models/models/

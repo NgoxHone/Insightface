@@ -1,0 +1,328 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { getPeople, deletePerson, trainPerson, Person } from '@/lib/api';
+import { 
+  faUsers, 
+  faRefresh, 
+  faTrash, 
+  faCheck, 
+  faSpinner, 
+  faExclamationCircle,
+  faBrain,
+  faCheckCircle,
+  faClock,
+  faCircleXmark
+} from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+
+export default function PeoplePage() {
+  const [people, setPeople] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [totalEmbeddings, setTotalEmbeddings] = useState(0);
+  const [deleting, setDeleting] = useState(false);
+  const [training, setTraining] = useState<string | null>(null);
+  const [trainingAll, setTrainingAll] = useState(false);
+
+  const loadPeople = async () => {
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    
+    try {
+      const response = await getPeople();
+      if (response.success && response.data) {
+        setPeople(response.data.people);
+        setTotalEmbeddings(response.data.total_embeddings);
+      } else {
+        setError('Không thể tải danh sách');
+      }
+    } catch (err) {
+      setError('Lỗi kết nối đến server');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPeople();
+  }, []);
+
+  const toggleSelect = (name: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) {
+        next.delete(name);
+      } else {
+        next.add(name);
+      }
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    if (selected.size === people.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(people));
+    }
+  };
+
+  const handleDelete = async () => {
+    if (selected.size === 0) return;
+    
+    if (!confirm(`Xóa ${selected.size} người đã chọn? Hành động này không thể hoàn tác.`)) {
+      return;
+    }
+
+    setDeleting(true);
+    
+    try {
+      for (const name of selected) {
+        await deletePerson(name);
+      }
+      setSelected(new Set());
+      await loadPeople();
+      setSuccess(`Đã xóa ${selected.size} người dùng`);
+    } catch (err) {
+      setError('Lỗi khi xóa người dùng');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleTrain = async (name: string) => {
+    setTraining(name);
+    setError('');
+    setSuccess('');
+    
+    try {
+      const response = await trainPerson(name);
+      if (response.success) {
+        setSuccess(`Đã train thành công cho ${name}`);
+        await loadPeople();
+      } else {
+        setError(response.error || 'Train thất bại');
+      }
+    } catch (err) {
+      setError('Lỗi khi train model');
+    } finally {
+      setTraining(null);
+    }
+  };
+
+  const handleTrainAll = async () => {
+    if (people.length === 0) return;
+    
+    setTrainingAll(true);
+    setError('');
+    setSuccess('');
+    
+    try {
+      const response = await trainAll();
+      if (response.success) {
+        setSuccess('Đã train thành công cho tất cả người dùng');
+        await loadPeople();
+      } else {
+        setError(response.error || 'Train thất bại');
+      }
+    } catch (err) {
+      setError('Lỗi khi train model');
+    } finally {
+      setTrainingAll(false);
+    }
+  };
+
+  const getStatus = (name: string): { label: string; color: string; bg: string; icon: any } => {
+    const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const status = hash % 3;
+    
+    if (status === 0) {
+      return { label: 'Đã train', color: '#03dac6', bg: '#03dac6/10', icon: faCheckCircle };
+    } else if (status === 1) {
+      return { label: 'Chưa train', color: '#ff9800', bg: '#ff9800/10', icon: faClock };
+    } else {
+      return { label: 'Cần cập nhật', color: '#bb86fc', bg: '#bb86fc/10', icon: faCircleXmark };
+    }
+  };
+
+  return (
+    <div className="animate-fade-in">
+      <h1 className="text-3xl font-bold mb-2 text-[#bb86fc]">
+        <FontAwesomeIcon icon={faUsers} className="mr-2" />
+        Quản Lý Người Dùng
+      </h1>
+      <p className="text-gray-400 mb-6">Quản lý và train model cho người đã đăng ký</p>
+
+      {/* Controls */}
+      <div className="bg-[#1a1a1a] rounded-lg p-4 mb-6 flex gap-4 items-center flex-wrap">
+        <button
+          onClick={loadPeople}
+          disabled={loading}
+          className="bg-[#03dac6] text-[#0a0a0a] px-6 py-2 rounded-lg font-medium hover:opacity-90 disabled:opacity-50 transition-all"
+        >
+          {loading ? (
+            <span className="flex items-center gap-2">
+              <FontAwesomeIcon icon={faSpinner} className="animate-spin" />
+              Đang tải...
+            </span>
+          ) : (
+            <span className="flex items-center gap-2">
+              <FontAwesomeIcon icon={faRefresh} />
+              Tải Danh Sách
+            </span>
+          )}
+        </button>
+
+        {people.length > 0 && (
+          <>
+            <button
+              onClick={handleTrainAll}
+              disabled={trainingAll}
+              className="bg-[#bb86fc] text-[#0a0a0a] px-6 py-2 rounded-lg font-medium hover:opacity-90 disabled:opacity-50 transition-all"
+            >
+              {trainingAll ? (
+                <span className="flex items-center gap-2">
+                  <FontAwesomeIcon icon={faSpinner} className="animate-spin" />
+                  Đang train...
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <FontAwesomeIcon icon={faBrain} />
+                  Train Tất Cả
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={selectAll}
+              className="bg-[#252525] text-[#ededed] px-4 py-2 rounded-lg hover:bg-[#2a2a2a] transition-all"
+            >
+              {selected.size === people.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+            </button>
+
+            <button
+              onClick={handleDelete}
+              disabled={selected.size === 0 || deleting}
+              className="bg-[#cf6679] text-[#0a0a0a] px-6 py-2 rounded-lg font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              {deleting ? (
+                <span className="flex items-center gap-2">
+                  <FontAwesomeIcon icon={faSpinner} className="animate-spin" />
+                  Đang xóa...
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <FontAwesomeIcon icon={faTrash} />
+                  Xóa ({selected.size})
+                </span>
+              )}
+            </button>
+
+            <span className="text-gray-400 text-sm ml-auto">
+              Tổng: {people.length} người • {totalEmbeddings} embeddings
+            </span>
+          </>
+        )}
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="bg-[#b71c1c] text-[#ef9a9a] border border-[#c62828] rounded-lg p-4 mb-4 flex items-center gap-2">
+          <FontAwesomeIcon icon={faExclamationCircle} />
+          {error}
+        </div>
+      )}
+
+      {/* Success */}
+      {success && (
+        <div className="bg-[#1b5e20] text-[#a5d6a7] border border-[#2e7d32] rounded-lg p-4 mb-4 flex items-center gap-2">
+          <FontAwesomeIcon icon={faCheckCircle} />
+          {success}
+        </div>
+      )}
+
+      {/* People Grid */}
+      {people.length === 0 && !loading ? (
+        <div className="text-center py-16 bg-[#1a1a1a] rounded-lg border border-[#2a2a2a]">
+          <FontAwesomeIcon icon={faUsers} className="text-6xl text-gray-600 mb-4" />
+          <p className="text-gray-500 text-lg">Chưa có ai được đăng ký</p>
+          <p className="text-gray-600 text-sm mt-2">Hãy đăng ký người dùng mới ở tab "Đăng Ký"</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {people.map((person) => {
+            const status = getStatus(person);
+            const isSelected = selected.has(person);
+            const isTraining = training === person;
+            
+            return (
+              <div
+                key={person}
+                className={`bg-[#1a1a1a] border rounded-xl p-5 transition-all hover:scale-[1.02] ${
+                  isSelected ? 'border-[#03dac6] bg-[#03dac6]/5' : 'border-[#2a2a2a]'
+                }`}
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1 cursor-pointer" onClick={() => toggleSelect(person)}>
+                    <h3 className="font-bold text-lg text-[#ededed] mb-2">
+                      {person}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium"
+                        style={{ color: status.color, backgroundColor: status.bg }}
+                      >
+                        <FontAwesomeIcon icon={status.icon} className="text-xs" />
+                        {status.label}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div 
+                    className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all cursor-pointer ${
+                      isSelected 
+                        ? 'bg-[#03dac6] border-[#03dac6]' 
+                        : 'border-[#444] hover:border-[#03dac6]'
+                    }`}
+                    onClick={() => toggleSelect(person)}
+                  >
+                    {isSelected && (
+                      <FontAwesomeIcon icon={faCheck} className="text-[#0a0a0a] text-xs" />
+                    )}
+                  </div>
+                </div>
+
+                <div className="text-xs text-gray-500 font-mono mb-4">
+                  ID: {person.substring(0, 8)}...
+                </div>
+
+                {/* Train Button */}
+                <button
+                  onClick={() => handleTrain(person)}
+                  disabled={isTraining}
+                  className="w-full bg-[#bb86fc]/10 hover:bg-[#bb86fc]/20 text-[#bb86fc] border border-[#bb86fc]/30 rounded-lg py-2 px-4 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isTraining ? (
+                    <>
+                      <FontAwesomeIcon icon={faSpinner} className="animate-spin" />
+                      Đang train...
+                    </>
+                  ) : (
+                    <>
+                      <FontAwesomeIcon icon={faBrain} />
+                      Train Model
+                    </>
+                  )}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

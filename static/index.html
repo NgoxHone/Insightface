@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Nhận Diện Khuôn Mặt</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Hệ Thống Nhận Diện Khuôn Mặt</h1>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="recognize">Nhận Diện</button>
+            <button class="tab-btn" data-tab="realtime">Realtime</button>
+            <button class="tab-btn" data-tab="register">Đăng Ký</button>
+            <button class="tab-btn" data-tab="people">Danh Sách</button>
+        </div>
+
+        <!-- Recognize Tab -->
+        <div id="recognize" class="tab-content active">
+            <h2>📤 Nhận Diện Khuôn Mặt</h2>
+            <p>Upload ảnh để phát hiện và nhận diện khuôn mặt</p>
+            <div class="upload-area" id="recognize-drop">
+                <input type="file" id="recognize-file" accept="image/*">
+                <p>Kéo thả ảnh vào đây hoặc click để chọn</p>
+            </div>
+            <div class="preview" id="recognize-preview" style="display:none;">
+                <img id="recognize-img" alt="Preview">
+                <canvas id="recognize-canvas"></canvas>
+            </div>
+            <div class="controls">
+                <label>Ngưỡng nhận diện: <input type="range" id="recognize-threshold" min="0.1" max="0.9" step="0.05" value="0.6">
+                    <span id="threshold-value">0.6</span>
+                </label>
+                <button id="recognize-btn" disabled>🔍 Nhận Diện</button>
+            </div>
+            <div id="recognize-results"></div>
+        </div>
+
+        <!-- Realtime Tab -->
+        <div id="realtime" class="tab-content">
+            <h2>📹 Nhận Diện Realtime</h2>
+            <p>Sử dụng webcam để nhận diện khuôn mặt theo thời gian thực</p>
+            <div class="controls">
+                <button id="start-realtime-btn" class="primary">▶️ Bắt Đầu</button>
+                <button id="stop-realtime-btn" class="danger" disabled>⏹️ Dừng</button>
+                <label style="margin-left: 20px;">
+                    Ngưỡng: <input type="range" id="realtime-threshold" min="0.1" max="0.9" step="0.05" value="0.6">
+                    <span id="realtime-threshold-value">0.6</span>
+                </label>
+            </div>
+            <div class="realtime-container">
+                <video id="realtime-video" autoplay playsinline></video>
+                <canvas id="realtime-canvas"></canvas>
+            </div>
+            <div id="realtime-results"></div>
+        </div>
+
+        <!-- Register Tab -->
+        <div id="register" class="tab-content">
+            <h2>➕ Đăng Ký Người Mới</h2>
+            <p>Thêm người mới vào hệ thống với ảnh khuôn mặt</p>
+            <div class="form-group">
+                <label>Họ và tên:</label>
+                <input type="text" id="register-name" placeholder="Nhập tên..." maxlength="100">
+            </div>
+            <div class="upload-area" id="register-drop">
+                <input type="file" id="register-files" accept="image/*" multiple>
+                <p>Kéo thả nhiều ảnh vào đây hoặc click để chọn<br><small>Nên có ít nhất 5 ảnh với các góc khác nhau</small></p>
+            </div>
+            <div class="controls">
+                <button id="register-btn" disabled>✅ Đăng Ký</button>
+                <button id="clear-register-btn" class="danger">🗑️ Xóa</button>
+            </div>
+            <div class="preview-grid" id="register-previews"></div>
+            <div id="register-results"></div>
+        </div>
+
+        <!-- People Tab -->
+        <div id="people" class="tab-content">
+            <h2>👥 Danh Sách Người Dùng</h2>
+            <div class="controls">
+                <button id="load-people-btn" class="primary">🔄 Tải Danh Sách</button>
+                <button id="delete-selected-btn" class="danger" style="display:none;">🗑️ Xóa Đã Chọn</button>
+            </div>
+            <div id="people-list" class="people-grid">
+                <p class="info-text">Nhấn "Tải Danh Sách" để xem người đã đăng ký</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
