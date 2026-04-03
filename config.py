@@ -1,6 +1,7 @@
 """
 Configuration management for Face Recognition System
 """
+
 import os
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -33,10 +34,10 @@ class Config:
     # Detection
     DETECTION_THRESHOLD: float = 0.5
     MIN_FACE_SIZE: int = 20
-    MAX_FACES_PER_IMAGE: int = 50
+    MAX_FACES_PER_IMAGE: int = 1000
 
     # Recognition
-    RECOGNITION_THRESHOLD: float = 0.6  # cosine similarity threshold (0-1)
+    RECOGNITION_THRESHOLD: float = 0.4  # cosine similarity threshold (0-1)
     MAX_EMBEDDINGS_PER_PERSON: int = 20
     USE_AVERAGE_EMBEDDING: bool = True  # Average multiple embeddings per person
 
@@ -53,14 +54,16 @@ class Config:
     MAX_PITCH_ANGLE: float = 25.0
 
     # Augmentation (for training)
-    AUGMENTATION_CONFIG: dict = field(default_factory=lambda: {
-        "flip_horizontal": True,
-        "rotate_degrees": 10,
-        "color_jitter": 0.2,
-        "blur_prob": 0.1,
-        "noise_prob": 0.1,
-        "sharpness_range": (0.8, 1.2)
-    })
+    AUGMENTATION_CONFIG: dict = field(
+        default_factory=lambda: {
+            "flip_horizontal": True,
+            "rotate_degrees": 10,
+            "color_jitter": 0.2,
+            "blur_prob": 0.1,
+            "noise_prob": 0.1,
+            "sharpness_range": (0.8, 1.2),
+        }
+    )
 
     # Training
     TRAIN_BATCH_SIZE: int = 32
@@ -105,7 +108,7 @@ class Config:
             self.TRAINED_MODELS_DIR / "checkpoints",
             self.TRAINED_MODELS_DIR / "finetuned",
             self.TRAINED_MODELS_DIR / "logs",
-            self.LOG_FILE.parent
+            self.LOG_FILE.parent,
         ]:
             dir_path.mkdir(parents=True, exist_ok=True)
 

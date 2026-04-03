@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   faUsers,
   faRefresh,
@@ -16,6 +16,9 @@ import {
   faUserTag,
   faCameraRetro,
   faLayerGroup,
+  faUserPlus,
+  faUpload,
+  faImages,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
@@ -44,6 +47,13 @@ export default function PeoplePage() {
   const [deleting, setDeleting] = useState(false);
   const [training, setTraining] = useState<string | null>(null);
   const [trainingAll, setTrainingAll] = useState(false);
+
+  // Registration state
+  const [showRegister, setShowRegister] = useState(false);
+  const [regName, setRegName] = useState("");
+  const [regImages, setRegImages] = useState<{ file: File; url: string }[]>([]);
+  const [regLoading, setRegLoading] = useState(false);
+  const regFileRef = useRef<HTMLInputElement>(null);
 
   // Filter logic
   const filteredPeople = useMemo(() => {
@@ -156,6 +166,47 @@ export default function PeoplePage() {
     }
   };
 
+  const handleRegFileSelect = useCallback((files: FileList) => {
+    const newImages = Array.from(files)
+      .filter((f) => f.type.startsWith("image/"))
+      .map((file) => ({ file, url: URL.createObjectURL(file) }));
+    setRegImages((prev) => [...prev, ...newImages]);
+  }, []);
+
+  const handleRegister = async () => {
+    if (!regName.trim() || regImages.length === 0) {
+      setError("Vui lòng nhập tên và chọn ít nhất 1 ảnh");
+      return;
+    }
+    setRegLoading(true);
+    setError("");
+    try {
+      const formData = new FormData();
+      formData.append("name", regName.trim());
+      regImages.forEach((img) => formData.append("images", img.file));
+      const res = await fetch(`${API_BASE}/api/register`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSuccess(
+          `Đã đăng ký ${regName} với ${data.data?.embeddings_extracted || 0} ảnh khuôn mặt!`,
+        );
+        setRegName("");
+        setRegImages([]);
+        setShowRegister(false);
+        loadPeople();
+      } else {
+        setError(data.error || "Đăng ký thất bại");
+      }
+    } catch {
+      setError("Lỗi kết nối đến server");
+    } finally {
+      setRegLoading(false);
+    }
+  };
+
   return (
     <div className="relative min-h-screen pb-40 px-4 md:px-0 max-w-[1400px] mx-auto">
       {/* 1. TOP HEADER (STATIC) */}
@@ -175,6 +226,13 @@ export default function PeoplePage() {
 
         {/* Nút chức năng tổng quát */}
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowRegister((v) => !v)}
+            className="h-10 px-4 rounded-xl bg-[#03dac6] text-black font-bold hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-[#03dac6]/20 text-sm"
+          >
+            <FontAwesomeIcon icon={faUserPlus} />
+            Đăng Ký Mới
+          </button>
           <button
             onClick={loadPeople}
             disabled={loading}
@@ -230,6 +288,105 @@ export default function PeoplePage() {
 
       {/* Alert Messages */}
       <div className="mt-4">
+        {/* Registration Panel */}
+        {showRegister && (
+          <div className="mb-6 bg-[#141414] border border-[#03dac6]/30 rounded-2xl p-6 animate-fade-in">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-[#03dac6] flex items-center gap-2">
+                <FontAwesomeIcon icon={faUserPlus} style={{ maxWidth: 20, maxHeight: 20 }} />
+                Đăng Ký Người Mới
+              </h3>
+              <button
+                onClick={() => { setShowRegister(false); setRegName(""); setRegImages([]); }}
+                className="w-8 h-8 rounded-lg bg-[#252525] text-gray-400 hover:text-white transition-all flex items-center justify-center"
+              >
+                <FontAwesomeIcon icon={faXmark} />
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <input
+                type="text"
+                value={regName}
+                onChange={(e) => setRegName(e.target.value)}
+                placeholder="Nhập tên người dùng..."
+                maxLength={100}
+                className="w-full max-w-md bg-[#252525] border border-[#3a3a3a] rounded-lg px-4 py-2 text-[#ededed] focus:border-[#03dac6] focus:outline-none focus:ring-2 focus:ring-[#03dac6]/20"
+              />
+            </div>
+
+            <div
+              className="border-2 border-dashed border-[#444] rounded-lg p-6 text-center cursor-pointer hover:border-[#03dac6] hover:bg-[#1a1a1a] transition-all mb-4"
+              onClick={() => regFileRef.current?.click()}
+              onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files.length > 0) handleRegFileSelect(e.dataTransfer.files); }}
+              onDragOver={(e) => e.preventDefault()}
+            >
+              <input
+                ref={regFileRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => e.target.files && handleRegFileSelect(e.target.files)}
+              />
+              <FontAwesomeIcon icon={faUpload} className="text-3xl text-gray-500 mb-2" />
+              <p className="text-gray-400 text-sm">
+                Kéo thả nhiều ảnh vào đây hoặc click để chọn
+                <br />
+                <small>Nên có ít nhất 5 ảnh với các góc khác nhau</small>
+              </p>
+            </div>
+
+            {regImages.length > 0 && (
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-2 text-gray-400 text-sm">
+                  <FontAwesomeIcon icon={faImages} />
+                  <span>{regImages.length} ảnh đã chọn</span>
+                </div>
+                <div className="grid grid-cols-4 sm:grid-cols-6 xl:grid-cols-8 gap-2">
+                  {regImages.map((img, idx) => (
+                    <div key={idx} className="relative group aspect-square">
+                      <img src={img.url} alt="" className="w-full h-full object-cover rounded-lg border border-[#444]" />
+                      <button
+                        onClick={() => setRegImages((prev) => prev.filter((_, i) => i !== idx))}
+                        className="absolute top-1 right-1 bg-[#cf6679] text-black w-5 h-5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs font-bold"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleRegister}
+                disabled={!regName.trim() || regImages.length === 0 || regLoading}
+                className="bg-[#03dac6] text-black px-6 py-2 rounded-lg font-bold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 text-sm"
+              >
+                {regLoading ? (
+                  <>
+                    <FontAwesomeIcon icon={faSpinner} className="animate-spin" />
+                    Đang đăng ký...
+                  </>
+                ) : (
+                  <>
+                    <FontAwesomeIcon icon={faCheckCircle} />
+                    Đăng Ký
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => { setRegName(""); setRegImages([]); }}
+                className="bg-[#252525] text-gray-300 px-4 py-2 rounded-lg hover:bg-[#333] transition-all text-sm"
+              >
+                Xóa hết
+              </button>
+            </div>
+          </div>
+        )}
+
         {success && (
           <div className="mb-4 p-4 bg-green-500/10 border border-green-500/50 text-green-400 rounded-xl flex items-center gap-3 animate-slide-up">
             <FontAwesomeIcon icon={faCheckCircle} /> {success}

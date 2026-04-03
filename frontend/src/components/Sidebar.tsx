@@ -6,9 +6,7 @@ import {
   faHome,
   faCamera,
   faVideo,
-  faUserPlus,
   faUsers,
-  faBrain,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
@@ -16,9 +14,7 @@ const navItems = [
   { href: "/", label: "Trang Chủ", icon: faHome },
   { href: "/recognize", label: "Nhận Diện", icon: faCamera },
   { href: "/realtime", label: "Realtime", icon: faVideo },
-  { href: "/register", label: "Đăng Ký", icon: faUserPlus },
-  { href: "/people", label: "Quản lý Train", icon: faBrain },
-  // { href: '/training', label: 'Training', icon: faBrain },
+  { href: "/people", label: "Quản Lý", icon: faUsers },
 ];
 
 export default function Sidebar() {
