@@ -361,3 +361,7 @@ MIT License - Feel free to use for your projects!
 
 - [InsightFace](https://github.com/deepinsight/insightface) - State-of-the-art face recognition
 - Built with Flask, OpenCV, PyTorch
+
+
+fe: cd frontend && npm run dev
+be: python3 scripts/run_api.py --host 0.0.0.0 --port 5001 --debug

@@ -6,14 +6,15 @@ import io
 import logging
 import os
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Generator
 from datetime import datetime
 
 import numpy as np
 import cv2
-from flask import Blueprint, request, jsonify, send_file
+from flask import Blueprint, request, jsonify, send_file, Response, stream_with_context
 
 from recognition.face_recognizer import FaceRecognizer
 from recognition.database import FaceDatabase
@@ -859,3 +860,152 @@ def clear_database():
 
     database.clear()
     return api_success(message="Database cleared")
+
+
+# ============== Realtime Tracking Stream ==============
+
+
+@api_bp.route("/tracking/stream")
+def tracking_stream():
+    """
+    Stream video with YOLO object tracking + face recognition
+
+    Query Parameters:
+        source: Video source (0=webcam, rtsp://..., or video file path). Default: '0'
+        resolution: Frame resolution 'WxH'. Default: '640x480'
+        frame_skip: Process every Nth frame (1=every frame). Default: 1
+        recognition_interval: Seconds between re-recognitions. Default: 2.0
+        yolo_model: YOLO model name (yolov8n.pt, yolov8s.pt, etc). Default from config
+
+    Returns:
+        MJPEG stream (multipart/x-mixed-replace) with annotated frames
+    """
+    source = request.args.get('source', '0')
+    resolution = request.args.get('resolution', '640x480')
+    frame_skip = int(request.args.get('frame_skip', 1))
+    recognition_interval = float(request.args.get('recognition_interval', 2.0))
+    yolo_model = request.args.get('yolo_model', config.YOLO_MODEL_NAME)
+    device = request.args.get('device', config.YOLO_DEVICE)
+    enable_tracking = request.args.get('tracking', 'true').lower() == 'true'
+
+    # Parse source type
+    try:
+        if source.isdigit():
+            source = int(source)
+    except:
+        pass
+
+    # Parse resolution
+    try:
+        width, height = map(int, resolution.split('x'))
+    except:
+        width, height = 640, 480
+        logger.warning(f"Invalid resolution '{resolution}', using 640x480")
+
+    # Create video source
+    video = None
+    pipeline = None
+
+    try:
+        from tracking.video_source import VideoSource
+        from tracking.pipeline import FaceTrackingPipeline, PipelineConfig
+
+        logger.info(f"Starting tracking stream: source={source}, res={width}x{height}, tracking={enable_tracking}")
+
+        video = VideoSource(source=source, width=width, height=height)
+
+        # Create pipeline config
+        cfg = PipelineConfig(
+            frame_skip=frame_skip,
+            recognition_interval=recognition_interval,
+            enable_tracking=enable_tracking
+        )
+
+        pipeline = FaceTrackingPipeline(database=database, config_override=cfg)
+
+        # Override YOLO models if needed
+        if yolo_model != config.YOLO_MODEL_NAME:
+            from tracking.detector import YOLODetector
+            from tracking.tracker import ByteTrackWrapper
+            pipeline.detector = YOLODetector(model_name=yolo_model, device=device)
+            if enable_tracking:
+                pipeline.tracker = ByteTrackWrapper(model_name=yolo_model, device=device)
+            logger.info(f"Using custom YOLO model: {yolo_model}")
+
+        def generate_frames() -> Generator[bytes, None, None]:
+            """Generator yielding MJPEG frames"""
+            try:
+                frame_count = 0
+                while True:
+                    ret, frame = video.read()
+                    if not ret:
+                        logger.warning("Video source ended or failed")
+                        break
+
+                    frame_count += 1
+
+                    # Process frame
+                    output = pipeline.process_frame(frame)
+
+                    # Annotate
+                    annotated = pipeline.annotate_frame(frame, output)
+
+                    # Encode as JPEG
+                    ret, buffer = cv2.imencode('.jpg', annotated, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                    if not ret:
+                        continue
+
+                    frame_bytes = buffer.tobytes()
+
+                    # Yield MJPEG frame
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
+            except GeneratorExit:
+                logger.info("Tracking stream: client disconnected")
+            except Exception as e:
+                logger.error(f"Error in tracking stream generator: {e}", exc_info=True)
+            finally:
+                # Cleanup
+                if pipeline:
+                    try:
+                        pipeline.reset()
+                    except:
+                        pass
+                if video:
+                    video.release()
+                logger.info("Tracking stream ended")
+
+        return Response(
+            stream_with_context(generate_frames()),
+            mimetype='multipart/x-mixed-replace; boundary=frame'
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to start tracking stream: {e}", exc_info=True)
+        if video:
+            video.release()
+        return api_error(f"Failed to start tracking: {str(e)}", 500)
+
+
+@api_bp.route("/tracking/stats")
+def tracking_stats():
+    """
+    Get tracking pipeline stats (for display alongside stream)
+
+    Note: This returns global stats. In future, could be per-session.
+    """
+    try:
+        from tracking.pipeline import FaceTrackingPipeline
+        # If we had a global pipeline, we could return its stats
+        # For now, return basic database info
+        people = database.get_all_people() if database else []
+        return api_success(data={
+            'database_people': len(people),
+            'recognizer_ready': database is not None,
+            'message': 'Stats endpoint ready. Implement per-pipeline tracking if needed.'
+        })
+    except Exception as e:
+        return api_error(str(e), 500)
+
+

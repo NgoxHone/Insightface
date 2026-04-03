@@ -6,6 +6,13 @@ flask-cors>=4.0.0
 opencv-python>=4.8.0
 numpy>=1.24.0
 
+# YOLO and tracking
+ultralytics>=8.0.0  # YOLOv8 with ByteTrack support
+
+# Optional: other trakers (if not using YOLO built-in)
+# strongsort==1.0.0  # Alternative tracker
+# deep-sort-realtime  # DeepSORT implementation
+
 # PyTorch for training
 torch>=2.0.0
 torchvision>=0.15.0

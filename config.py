@@ -90,6 +90,34 @@ class Config:
     LOG_LEVEL: str = "INFO"
     LOG_FILE: Path = PROJECT_ROOT / "logs" / "face_recognition.log"
 
+    # ========== Tracking Pipeline Settings ==========
+    # YOLO Detection
+    YOLO_MODEL_NAME: str = "yolov8n.pt"  # or yolov8s.pt, yolov8m.pt, yolov8l.pt, yolov8x.pt
+    YOLO_CONFIDENCE_THRESHOLD: float = 0.25  # Min confidence for detections
+    YOLO_IOU_THRESHOLD: float = 0.45  # IOU threshold for NMS
+    YOLO_DEVICE: str = "cpu"  # "cpu", "cuda", "cuda:0", etc.
+
+    # Tracking (ByteTrack)
+    TRACKING_ENABLED: bool = True
+    TRACK_BUFFER: int = 30  # Frames to keep lost tracks (default 30 for 1 sec at 30fps)
+    TRACK_CONFIDENCE_THRESHOLD: float = 0.1  # Lower threshold for tracking
+    TRACK_IOU_THRESHOLD: float = 0.2  # IOU threshold for matching
+    MATCH_THRESHOLD: float = 0.8  # Matching threshold for track association
+
+    # Realtime Pipeline Performance
+    FRAME_SKIP: int = 1  # Process every Nth frame for detection (1 = every frame)
+    RECOGNITION_INTERVAL: float = 2.0  # Seconds between re-recognitions for same track
+    MAX_TRACK_AGE: int = 120  # Maximum frames before track expires (~4 sec at 30fps)
+    MIN_FACE_SIZE_FOR_RECOGNITION: int = 40  # Minimum face size (pixels) to run recognition
+
+    # Face Extraction from Person BBox
+    FACE_CROP_PADDING: float = 0.1  # Padding ratio around face region within person bbox
+    FACE_SIZE_FOR_RECOGNITION: tuple = (112, 112)  # Size to resize face before recognition
+
+    # Cache Settings
+    TRACK_CACHE_TTL: int = 5  # Seconds to keep track→person mapping in cache
+    MAX_CACHE_SIZE: int = 1000  # Maximum number of cached tracks
+
     def __post_init__(self):
         """Create necessary directories"""
         for dir_path in [
