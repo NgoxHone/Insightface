@@ -2,6 +2,7 @@
 Face Analysis Wrapper using InsightFace
 Provides face detection, alignment, and embedding extraction
 """
+
 import threading
 import logging
 from typing import List, Optional, Tuple, Dict, Any
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 class FaceAnalysisSingleton:
     """Singleton wrapper for InsightFace FaceAnalysis to avoid multiple loads"""
+
     _instance = None
     _lock = threading.Lock()
     _model = None
@@ -42,12 +44,12 @@ class FaceAnalysisSingleton:
             self._model = insightface.app.FaceAnalysis(
                 name=config.MODEL_NAME,
                 providers=config.PROVIDERS,
-                root=str(config.MODELS_DIR)
+                root=str(config.MODELS_DIR),
             )
             self._model.prepare(
                 ctx_id=0,
                 det_thresh=config.DETECTION_THRESHOLD,
-                det_size=(640, 640)  # Can be tuned
+                det_size=(640, 640),  # Can be tuned
             )
             logger.info("Model loaded successfully")
         except Exception as e:
@@ -88,13 +90,16 @@ class FaceAnalysisSingleton:
                 bbox = face.bbox.astype(int)
                 face_width = bbox[2] - bbox[0]
                 face_height = bbox[3] - bbox[1]
-                if face_width >= config.MIN_FACE_SIZE and face_height >= config.MIN_FACE_SIZE:
+                if (
+                    face_width >= config.MIN_FACE_SIZE
+                    and face_height >= config.MIN_FACE_SIZE
+                ):
                     filtered_faces.append(face)
                 else:
                     logger.debug(f"Filtered out small face: {face_width}x{face_height}")
 
             logger.debug(f"Detected {len(filtered_faces)} faces")
-            return filtered_faces[:config.MAX_FACES_PER_IMAGE]
+            return filtered_faces[: config.MAX_FACES_PER_IMAGE]
         except Exception as e:
             logger.error(f"Error in detect_faces: {e}")
             return []
@@ -113,11 +118,11 @@ class FaceAnalysisSingleton:
         try:
             if aligned:
                 # Use normed_embedding if face is already aligned
-                if hasattr(face, 'normed_embedding'):
+                if hasattr(face, "normed_embedding"):
                     return face.normed_embedding
             else:
                 # Get embedding from face object
-                if hasattr(face, 'embedding'):
+                if hasattr(face, "embedding"):
                     # Normalize embedding to unit length
                     embedding = face.embedding
                     norm = np.linalg.norm(embedding)
@@ -140,7 +145,9 @@ class FaceAnalysisSingleton:
             Aligned face image (112x112 by default)
         """
         try:
-            aligned = face_align.norm_crop(image, landmark=landmarks, image_size=config.ALIGNMENT_TARGET_SIZE[0])
+            aligned = face_align.norm_crop(
+                image, landmark=landmarks, image_size=config.ALIGNMENT_TARGET_SIZE[0]
+            )
             return aligned
         except Exception as e:
             logger.error(f"Error aligning face: {e}")
@@ -176,17 +183,19 @@ class FaceAnalysisSingleton:
                 else:
                     # Crop without alignment
                     x1, y1, x2, y2 = bbox
-                    aligned_face = cv2.resize(image[y1:y2, x1:x2], config.ALIGNMENT_TARGET_SIZE)
+                    aligned_face = cv2.resize(
+                        image[y1:y2, x1:x2], config.ALIGNMENT_TARGET_SIZE
+                    )
 
                 # Get embedding
                 embedding = self.get_embedding(face, aligned=True)
 
                 result = {
-                    'face_img': aligned_face,
-                    'bbox': bbox.tolist(),
-                    'landmarks': landmarks.tolist() if landmarks is not None else None,
-                    'embedding': embedding,
-                    'face_obj': face
+                    "face_img": aligned_face,
+                    "bbox": bbox.tolist(),
+                    "landmarks": landmarks.tolist() if landmarks is not None else None,
+                    "embedding": embedding,
+                    "face_obj": face,
                 }
                 results.append(result)
             except Exception as e:
@@ -212,8 +221,7 @@ class FaceAnalysisSingleton:
 
         # Select largest face
         largest_face = max(
-            faces,
-            key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1])
+            faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1])
         )
 
         return self.get_embedding(largest_face, aligned=True)

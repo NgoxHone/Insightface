@@ -19,6 +19,7 @@ import {
   faUserPlus,
   faUpload,
   faImages,
+  faPhotoFilm,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
@@ -38,6 +39,7 @@ interface PersonData {
 }
 
 export default function PeoplePage() {
+  const [totalImages, setTotalImages] = useState(0);
   const [people, setPeople] = useState<PersonData[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
@@ -78,6 +80,7 @@ export default function PeoplePage() {
             expanded: false,
           })),
         );
+        setTotalImages(response.data.total_images);
       }
     } catch (err) {
       setError("Lỗi kết nối server");
@@ -222,6 +225,24 @@ export default function PeoplePage() {
           <p className="text-gray-500 text-sm">
             Quản lý kho dữ liệu nhận diện AI
           </p>
+          {people.length > 0 && (
+            <div className="flex items-center gap-3 mt-2">
+              <span className="inline-flex items-center gap-1.5 bg-[#bb86fc]/10 border border-[#bb86fc]/30 text-[#bb86fc] px-3 py-1 rounded-full text-xs font-bold">
+                <FontAwesomeIcon
+                  icon={faUsers}
+                  style={{ maxWidth: 12, maxHeight: 12 }}
+                />
+                {people.length} người dùng
+              </span>
+              <span className="inline-flex items-center gap-1.5 bg-[#03dac6]/10 border border-[#03dac6]/30 text-[#03dac6] px-3 py-1 rounded-full text-xs font-bold">
+                <FontAwesomeIcon
+                  icon={faPhotoFilm}
+                  style={{ maxWidth: 12, maxHeight: 12 }}
+                />
+                {totalImages} hình ảnh
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Nút chức năng tổng quát */}
@@ -293,11 +314,18 @@ export default function PeoplePage() {
           <div className="mb-6 bg-[#141414] border border-[#03dac6]/30 rounded-2xl p-6 animate-fade-in">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-[#03dac6] flex items-center gap-2">
-                <FontAwesomeIcon icon={faUserPlus} style={{ maxWidth: 20, maxHeight: 20 }} />
+                <FontAwesomeIcon
+                  icon={faUserPlus}
+                  style={{ maxWidth: 20, maxHeight: 20 }}
+                />
                 Đăng Ký Người Mới
               </h3>
               <button
-                onClick={() => { setShowRegister(false); setRegName(""); setRegImages([]); }}
+                onClick={() => {
+                  setShowRegister(false);
+                  setRegName("");
+                  setRegImages([]);
+                }}
                 className="w-8 h-8 rounded-lg bg-[#252525] text-gray-400 hover:text-white transition-all flex items-center justify-center"
               >
                 <FontAwesomeIcon icon={faXmark} />
@@ -318,7 +346,11 @@ export default function PeoplePage() {
             <div
               className="border-2 border-dashed border-[#444] rounded-lg p-6 text-center cursor-pointer hover:border-[#03dac6] hover:bg-[#1a1a1a] transition-all mb-4"
               onClick={() => regFileRef.current?.click()}
-              onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files.length > 0) handleRegFileSelect(e.dataTransfer.files); }}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (e.dataTransfer.files.length > 0)
+                  handleRegFileSelect(e.dataTransfer.files);
+              }}
               onDragOver={(e) => e.preventDefault()}
             >
               <input
@@ -327,9 +359,14 @@ export default function PeoplePage() {
                 accept="image/*"
                 multiple
                 className="hidden"
-                onChange={(e) => e.target.files && handleRegFileSelect(e.target.files)}
+                onChange={(e) =>
+                  e.target.files && handleRegFileSelect(e.target.files)
+                }
               />
-              <FontAwesomeIcon icon={faUpload} className="text-3xl text-gray-500 mb-2" />
+              <FontAwesomeIcon
+                icon={faUpload}
+                className="text-3xl text-gray-500 mb-2"
+              />
               <p className="text-gray-400 text-sm">
                 Kéo thả nhiều ảnh vào đây hoặc click để chọn
                 <br />
@@ -346,9 +383,17 @@ export default function PeoplePage() {
                 <div className="grid grid-cols-4 sm:grid-cols-6 xl:grid-cols-8 gap-2">
                   {regImages.map((img, idx) => (
                     <div key={idx} className="relative group aspect-square">
-                      <img src={img.url} alt="" className="w-full h-full object-cover rounded-lg border border-[#444]" />
+                      <img
+                        src={img.url}
+                        alt=""
+                        className="w-full h-full object-cover rounded-lg border border-[#444]"
+                      />
                       <button
-                        onClick={() => setRegImages((prev) => prev.filter((_, i) => i !== idx))}
+                        onClick={() =>
+                          setRegImages((prev) =>
+                            prev.filter((_, i) => i !== idx),
+                          )
+                        }
                         className="absolute top-1 right-1 bg-[#cf6679] text-black w-5 h-5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs font-bold"
                       >
                         ✕
@@ -362,12 +407,17 @@ export default function PeoplePage() {
             <div className="flex gap-3">
               <button
                 onClick={handleRegister}
-                disabled={!regName.trim() || regImages.length === 0 || regLoading}
+                disabled={
+                  !regName.trim() || regImages.length === 0 || regLoading
+                }
                 className="bg-[#03dac6] text-black px-6 py-2 rounded-lg font-bold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 text-sm"
               >
                 {regLoading ? (
                   <>
-                    <FontAwesomeIcon icon={faSpinner} className="animate-spin" />
+                    <FontAwesomeIcon
+                      icon={faSpinner}
+                      className="animate-spin"
+                    />
                     Đang đăng ký...
                   </>
                 ) : (
@@ -378,7 +428,10 @@ export default function PeoplePage() {
                 )}
               </button>
               <button
-                onClick={() => { setRegName(""); setRegImages([]); }}
+                onClick={() => {
+                  setRegName("");
+                  setRegImages([]);
+                }}
                 className="bg-[#252525] text-gray-300 px-4 py-2 rounded-lg hover:bg-[#333] transition-all text-sm"
               >
                 Xóa hết
